@@ -1,13 +1,17 @@
 import { Schema, model } from 'mongoose';
+import bcrypt from 'bcrypt';
 import validator from 'validator';
 import {
-  Guardian,
-  LocalGuardian,
-  Student,
-  UserName,
+  TGuardian,
+  TLocalGuardian,
+  TStudent,
+  StudentModel,
+  TUserName,
 } from './student.interface';
+import config from '../../config';
+import { assert } from 'joi';
 
-const userSchema = new Schema<UserName>({
+const userSchema = new Schema<TUserName>({
   firstName: {
     type: String,
     required: [
@@ -27,7 +31,7 @@ const userSchema = new Schema<UserName>({
   },
 });
 
-const guardianSchema = new Schema<Guardian>({
+const guardianSchema = new Schema<TGuardian>({
   fatherName: { type: String, required: true },
   fatherOccupation: { type: String },
   fatherContactNo: { type: String, required: true },
@@ -36,14 +40,14 @@ const guardianSchema = new Schema<Guardian>({
   motherContactNo: { type: String, required: true },
 });
 
-const localGuardianSchema = new Schema<LocalGuardian>({
+const localGuardianSchema = new Schema<TLocalGuardian>({
   name: { type: String, required: true },
   occupation: { type: String },
   contactNo: { type: String, required: true },
   address: { type: String },
 });
 
-const studentSchema = new Schema<Student>({
+const studentSchema = new Schema<TStudent, StudentModel>({
   id: { type: String, required: true, unique: true },
   name: {
     type: userSchema,
@@ -54,6 +58,7 @@ const studentSchema = new Schema<Student>({
     enum: ['male', 'female', 'other'],
     required: true,
   },
+  password: { type: String },
   dateOfBirth: { type: String },
   email: {
     type: String,
@@ -88,4 +93,35 @@ const studentSchema = new Schema<Student>({
   },
 });
 
-export const StudentModel = model<Student>('Student', studentSchema);
+// pre save middleware
+
+studentSchema.pre('save', async function (next) {
+  // console.log(this, 'pre hook : we will save the data');
+
+  // hash pasword
+  this.password = await bcrypt.hash(
+    this.password,
+    Number(config.bcrypt_salt_rounds),
+  );
+  next();
+});
+
+// post save middleware
+
+studentSchema.post('save', function () {
+  console.log(this, 'post hook : we save our data');
+});
+
+// for creating static methods
+studentSchema.statics.isUserExists = async (id: string) => {
+  const userExisting = await Student.findOne({ id });
+  return userExisting;
+};
+
+// creating custom instance method
+// studentSchema.methods.isUserExists = async function (id: string) {
+//   const existingUser = await Student.findOne({ id });
+//   return existingUser;
+// };
+
+export const Student = model<TStudent, StudentModel>('Student', studentSchema);
