@@ -9,7 +9,6 @@ import {
   TUserName,
 } from './student.interface';
 import config from '../../config';
-import { assert } from 'joi';
 
 const userSchema = new Schema<TUserName>({
   firstName: {
@@ -91,6 +90,10 @@ const studentSchema = new Schema<TStudent, StudentModel>({
     enum: ['active', 'blocked'],
     default: 'active',
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // pre save middleware
@@ -108,8 +111,16 @@ studentSchema.pre('save', async function (next) {
 
 // post save middleware
 
-studentSchema.post('save', function () {
-  console.log(this, 'post hook : we save our data');
+studentSchema.post('save', function (doc, next) {
+  doc.password = '';
+  next();
+});
+
+// query middleware
+
+studentSchema.pre('find', function (next) {
+  this.find({ isDeleted: { $ne: true } });
+  next();
 });
 
 // for creating static methods
